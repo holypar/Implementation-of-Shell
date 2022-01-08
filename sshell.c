@@ -8,6 +8,7 @@
 int main(void)
 {
         char cmd[CMDLINE_MAX];
+        printf("hello");
 
         while (1) {
                 char *nl;
