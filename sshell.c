@@ -2,8 +2,44 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <sys/wait.h>
 #define CMDLINE_MAX 512
+
+
+// Make a function to parse the command line 
+// Input: command line string 
+// Output: array of substrings from command line 
+
+
+
+// Function for executing a comand 
+// Source: Lecture from fork_exec_wait.c
+// Input: User inputted command
+// Output: exit status of execution 
+int ExecuteCommand(char* command) {
+
+
+        pid_t pid;
+        // Use the array of substrings here
+        char* args[] = {command, NULL};
+        pid = fork();
+        if (pid == 0) {
+                // Child 
+                execvp(command, args); 
+                perror("execv");
+                exit(1);
+        } else if (pid > 0) {
+                // Parent 
+                int status; 
+                waitpid(pid, &status, 0); 
+                return WEXITSTATUS(status);
+        } else {
+                // Handle Errors 
+                perror("fork");
+                exit(1);
+        }
+}
+
 
 int main(void)
 {
@@ -38,10 +74,12 @@ int main(void)
                 }
 
                 /* Regular command */
-                retval = system(cmd);
-                fprintf(stdout, "Return status value for '%s': %d\n",
-                        cmd, retval);
+                 retval = ExecuteCommand(cmd);
+                 fprintf(stdout, "Return status value for '%s': %d\n",
+                         cmd, retval);
         }
 
         return EXIT_SUCCESS;
 }
+
+
