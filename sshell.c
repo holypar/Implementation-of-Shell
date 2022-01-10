@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #define CMDLINE_MAX 512
@@ -19,14 +20,13 @@
 
 int ExecuteCommand(char* command) {
         
-
         pid_t pid;
         
         pid = fork();
         
         char* args[] = {};
-        int tokenInteger = 0 ; 
-
+        int tokenInteger = 0; 
+        
         char* token = strtok(command, " "); // "date" gets saved to token
         strcpy(args[tokenInteger], token); //store in args 
         //date -u -v 
