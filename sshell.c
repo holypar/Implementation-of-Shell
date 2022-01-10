@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #define CMDLINE_MAX 512
@@ -10,22 +9,38 @@
 // Input: command line string 
 // Output: array of substrings from command line 
 
-
+//**char an array of strings
 
 // Function for executing a comand 
 // Source: Lecture from fork_exec_wait.c
 // Input: User inputted command
 // Output: exit status of execution 
-int ExecuteCommand(char* command) {
+ 
 
+int ExecuteCommand(char* command) {
+        
 
         pid_t pid;
-        // Use the array of substrings here
-        char* args[] = {command, NULL};
+        
         pid = fork();
+        
+        char* args[] = {};
+        int tokenInteger = 0 ; 
+
+        char* token = strtok(command, " "); // "date" gets saved to token
+        strcpy(args[tokenInteger], token); //store in args 
+        //date -u -v 
+        while (token != NULL) {
+                tokenInteger++;
+                token = strtok(NULL, " ");
+                strcpy(args[tokenInteger], token);
+        }
+        tokenInteger++;
+        args[tokenInteger] = NULL; 
+
         if (pid == 0) {
                 // Child 
-                execvp(command, args); 
+                execvp(args[0], args); // ,date, date -u -v
                 perror("execv");
                 exit(1);
         } else if (pid > 0) {
