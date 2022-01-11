@@ -16,31 +16,28 @@
 // Source: Lecture from fork_exec_wait.c
 // Input: User inputted command
 // Output: exit status of execution 
- 
 
 int ExecuteCommand(char* command) {
         
         pid_t pid;
         
-        pid = fork();
+        char* args[17];
         
-        char* args[] = {};
         int tokenInteger = 0; 
         
-        char* token = strtok(command, " "); // "date" gets saved to token
-        strcpy(args[tokenInteger], token); //store in args 
-        //date -u -v 
+        char* token = strtok(command, " "); 
+        
         while (token != NULL) {
+                args[tokenInteger] = token; 
                 tokenInteger++;
                 token = strtok(NULL, " ");
-                strcpy(args[tokenInteger], token);
         }
-        tokenInteger++;
         args[tokenInteger] = NULL; 
 
+        pid = fork();
         if (pid == 0) {
                 // Child 
-                execvp(args[0], args); // ,date, date -u -v
+                execvp(args[0], args); 
                 perror("execv");
                 exit(1);
         } else if (pid > 0) {
@@ -54,7 +51,6 @@ int ExecuteCommand(char* command) {
                 exit(1);
         }
 }
-
 
 int main(void)
 {
