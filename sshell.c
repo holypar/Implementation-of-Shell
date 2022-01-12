@@ -3,25 +3,49 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <dirent.h>
+
+#define PATH_MAX 4096
+// Found within https://stackoverflow.com/questions/9449241/where-is-path-max-defined-in-linux
+
 #define CMDLINE_MAX 512
 
+void executeCd(char* changeTo){
+        
+        // Check if the path exists first 
+        DIR *directoryPointer; 
+        struct dirent *dp; 
+        
+        directoryPointer = opendir("."); 
 
-// Make a function to parse the command line 
-// Input: command line string 
-// Output: array of substrings from command line 
+        while ((dp = readdir(directoryPointer)) != NULL) {
+                // If the path exists, 
+                if (strcmp(dp->d_name, changeTo)) {
+                        chdir(changeTo);
+                        fprintf(stdout, "%s\n", "Changed Directory"); 
 
-//**char an array of strings
+                } else {
+                        fprintf(stderr, "%s\n", "Error: cannot cd into directory");
+                }
+        }
 
-// Function for executing a comand 
+}
+
+
+void executePwd() {
+        char current_directory[PATH_MAX]; 
+        getcwd(current_directory, sizeof(current_directory)); 
+        fprintf(stdout, "%s\n", current_directory); 
+        fprintf(stdout, "Return status value for '%s': %d\n", "pwd", 0);
+}
+
+// Function for executing a comand and parsing the command line 
 // Source: Lecture from fork_exec_wait.c
 // Input: User inputted command
-// Output: exit status of execution 
+// Output: exit status of execution
 
-int ExecuteCommand(char* command) {
+void parseCommandLine(char* command, char** args) {
         
-        pid_t pid;
-        
-        char* args[17];
         
         int tokenInteger = 0; 
         
@@ -32,7 +56,15 @@ int ExecuteCommand(char* command) {
                 tokenInteger++;
                 token = strtok(NULL, " ");
         }
-        args[tokenInteger] = NULL; 
+        args[tokenInteger] = NULL;
+        
+}
+
+int ExecuteCommand(char* command) {
+        
+        pid_t pid;
+        char* args[17]; 
+        parseCommandLine(command, args); 
 
         pid = fork();
         if (pid == 0) {
@@ -84,9 +116,15 @@ int main(void)
                         break;
                 }
 
+                /* Builtin command for pwd */
+                if (!strcmp(cmd, "pwd")) {
+                        executePwd(); 
+                        continue; 
+                }
+
                 /* Regular command */
-                 retval = ExecuteCommand(cmd);
-                 fprintf(stdout, "Return status value for '%s': %d\n",
+                retval = ExecuteCommand(cmd);
+                fprintf(stdout, "Return status value for '%s': %d\n",
                          cmd, retval);
         }
 
