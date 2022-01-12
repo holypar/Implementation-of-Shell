@@ -10,27 +10,30 @@
 
 #define CMDLINE_MAX 512
 
-void executeCd(char* changeTo){
+
+void executeCd(char* pathToChange){
         
         // Check if the path exists first 
         DIR *directoryPointer; 
         struct dirent *dp; 
-        
+        int canChange = 0; 
         directoryPointer = opendir("."); 
 
         while ((dp = readdir(directoryPointer)) != NULL) {
-                // If the path exists, 
-                if (strcmp(dp->d_name, changeTo)) {
-                        chdir(changeTo);
-                        fprintf(stdout, "%s\n", "Changed Directory"); 
-
-                } else {
-                        fprintf(stderr, "%s\n", "Error: cannot cd into directory");
+                if (!(strcmp(dp->d_name, pathToChange))) {
+                        canChange = 1;
+                        break; 
                 }
+        
+        }
+        if (canChange) {
+                chdir(pathToChange);
+                fprintf(stdout, "%s\n", "Changed Directory"); 
+        } else {
+                fprintf(stderr, "%s\n", "Error: cannot cd into directory");
         }
 
 }
-
 
 void executePwd() {
         char current_directory[PATH_MAX]; 
@@ -46,7 +49,7 @@ void executePwd() {
 
 void parseCommandLine(char* command, char** args) {
         
-        
+
         int tokenInteger = 0; 
         
         char* token = strtok(command, " "); 
@@ -60,11 +63,10 @@ void parseCommandLine(char* command, char** args) {
         
 }
 
-int ExecuteCommand(char* command) {
+int ExecuteCommand(char** args) {
         
         pid_t pid;
-        char* args[17]; 
-        parseCommandLine(command, args); 
+        
 
         pid = fork();
         if (pid == 0) {
@@ -91,7 +93,7 @@ int main(void)
         while (1) {
                 char *nl;
                 int retval;
-
+                
                 /* Print prompt */
                 printf("sshell$ ");
                 fflush(stdout);
@@ -121,9 +123,16 @@ int main(void)
                         executePwd(); 
                         continue; 
                 }
+                char* args[17]; 
+                parseCommandLine(cmd, args); 
+
+                if (!strcmp(args[0], "cd")) {
+                        executeCd(args[1]); 
+                        continue; 
+                }
 
                 /* Regular command */
-                retval = ExecuteCommand(cmd);
+                retval = ExecuteCommand(args);
                 fprintf(stdout, "Return status value for '%s': %d\n",
                          cmd, retval);
         }
