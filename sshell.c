@@ -17,6 +17,7 @@ void executeCd(char* pathToChange){
         DIR *directoryPointer; 
         struct dirent *dp; 
         int canChange = 0; 
+        // Doesn't work for absolute path right now. Need to change in the future. 
         directoryPointer = opendir("."); 
 
         while ((dp = readdir(directoryPointer)) != NULL) {
@@ -47,27 +48,71 @@ void executePwd() {
 // Input: User inputted command
 // Output: exit status of execution
 
-void parseCommandLine(char* command, char** args) {
+void splitCommandLine(char* command, char** args) {
         
-
         int tokenInteger = 0; 
         
         char* token = strtok(command, " "); 
         
         while (token != NULL) {
+
                 args[tokenInteger] = token; 
                 tokenInteger++;
                 token = strtok(NULL, " ");
         }
         args[tokenInteger] = NULL;
-        
+
+        // Comments for phase 4 
+        /* 
+        Make sure to check that the number of arguements is less than 16 (command + number of args)
+        ls folder > file.txt 
+        Input: "ls", "folder", ">", "file.txt", NULL 
+        P1:"ls", "folder", NULL 
+        ">" "file.txt"
+                1st Step: 
+                Before: (STDOUT P1) -> terminal
+                After: (STDOUT P1) -> file.txt 
+                2nd Step: 
+                Execute P1 
+        ls folder > file.txt | cat file.txt
+        "ls", "folder", "|", "cat", file.txt", NULL
+        P1: "ls", "folder", NULL 
+        P2: "cat", file.txt", NULL
+        (STDOUT P1) -> (STDIN P2), (STDOUT) -> Terminal   
+        */
+         
 }
+
+/* 
+void outputRedirection(char** args){
+
+        char* leftHalf[17]; 
+        char* rightHalf[17];
+        // Finding the length of an array 
+        int length = (sizeof args / sizeof args[0]);
+        for (int i = 0; i < length; i++)
+        {
+                if (args[i] == ">") {
+                        for (int j = 0; j < i; j++){
+                                leftHalf[j] = args[j];
+                        }
+                        for (int j = (i+1); j < length; j++){
+                                rightHalf[j] = args[j];
+                                
+                        }
+                        
+                } 
+        }
+        // P1 = lefthalf of > :  "ls", "folder", NULL
+        // P2 = righthalf of > :  
+}
+*/ 
+
 
 int ExecuteCommand(char** args) {
         
         pid_t pid;
         
-
         pid = fork();
         if (pid == 0) {
                 // Child 
@@ -123,8 +168,9 @@ int main(void)
                         executePwd(); 
                         continue; 
                 }
+
                 char* args[17]; 
-                parseCommandLine(cmd, args); 
+                splitCommandLine(cmd, args); 
 
                 if (!strcmp(args[0], "cd")) {
                         executeCd(args[1]); 
