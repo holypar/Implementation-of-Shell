@@ -100,7 +100,8 @@ struct Process createProcess(char** processTokens, int tokensLength) {
                 process.args[i] = args[i]; 
         }
         /* Store the properties into the struct */
-        process.args[argsToken + 1] = NULL; 
+      
+        process.args[argsToken] = NULL; 
         process.fileName = filename; 
         process.redirection = redirection; 
         
