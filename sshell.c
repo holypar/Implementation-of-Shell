@@ -144,7 +144,8 @@ void ParseCommandLine(char* command, struct Process* processList) {
         int numberTokens = 0;
         for (int j = startCounter; j < tokensLength; j++)
         {
-                processTokens[j] = splitTokens[j]; 
+                processTokens[j] = splitTokens[j];
+                numberTokens++;  
         }
         
         struct Process process = createProcess(processTokens, numberTokens);
