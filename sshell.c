@@ -218,7 +218,7 @@ int main(void)
                         ExecuteCd(args[1]); 
                         continue; 
                 }
-                
+
                 /* Regular command */
                 retval = ExecuteCommand(args);
                 fprintf(stdout, "Return status value for '%s': %d\n",
