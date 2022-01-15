@@ -9,6 +9,7 @@
 // Found within https://stackoverflow.com/questions/9449241/where-is-path-max-defined-in-linux
 #define CMDLINE_MAX 512
 #define MAX_TOKENS 17 
+#define MAX_PROCESS 4
 struct Process {
         char* args[MAX_TOKENS];
         bool redirection;
@@ -53,7 +54,7 @@ void ExecutePwd() {
 // Input: User inputted command
 // Output: exit status of execution
 
-void SplitCommandLine(char* command, char** args) {
+int SplitCommandLine(char* command, char** args) {
         
         int tokenInteger = 0; 
         
@@ -66,6 +67,7 @@ void SplitCommandLine(char* command, char** args) {
                 token = strtok(NULL, " ");
         }
         args[tokenInteger] = NULL;
+        return tokenInteger; 
 }
 
 struct Process createProcess(char** processTokens, int tokensLength) {
@@ -107,15 +109,14 @@ struct Process createProcess(char** processTokens, int tokensLength) {
 }
 
 void ParseCommandLine(char* command, struct Process* processList) {
-        
         /*Splitting the command line into tokens */
         char* splitTokens[MAX_TOKENS]; 
-        SplitCommandLine(command, splitTokens); 
+        int tokensLength = SplitCommandLine(command, splitTokens); 
 
         /* Going through each token and create a process */
         int numberProcess = 0; 
         int startCounter = 0; 
-        int tokensLength = (sizeof splitTokens / sizeof splitTokens[0]);
+        
         for (int i = 0; i < tokensLength; i++)
         {
                 if (!strcmp(splitTokens[i], "|")) {
@@ -151,14 +152,14 @@ void ParseCommandLine(char* command, struct Process* processList) {
         numberProcess++; 
 } 
 
-int ExecuteCommand(char** args) {
+int ExecuteCommand(struct Process process) {
         
         pid_t pid;
         
         pid = fork();
         if (pid == 0) {
                 // Child 
-                execvp(args[0], args); 
+                execvp(process.args[0], process.args); 
                 perror("execv");
                 exit(1);
         } else if (pid > 0) {
@@ -210,17 +211,19 @@ int main(void)
                         ExecutePwd(); 
                         continue; 
                 }
+                
+                
+                struct Process processList[MAX_PROCESS]; 
+                ParseCommandLine(cmd, processList);
+                struct Process first_process = processList[0]; 
 
-                char* args[MAX_TOKENS]; 
-                SplitCommandLine(cmd, args); 
-
-                if (!strcmp(args[0], "cd")) {
-                        ExecuteCd(args[1]); 
+                if (!strcmp(first_process.args[0], "cd")) {
+                        ExecuteCd(first_process.args[1]); 
                         continue; 
                 }
 
                 /* Regular command */
-                retval = ExecuteCommand(args);
+                retval = ExecuteCommand(first_process);
                 fprintf(stdout, "Return status value for '%s': %d\n",
                          cmd, retval);
         }

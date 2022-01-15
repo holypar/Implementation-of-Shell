@@ -17,8 +17,6 @@ This process is stored into an array of process structures.
 
 
 
-
-
 ## Conclusion ##
 
 
