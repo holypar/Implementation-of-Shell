@@ -4,14 +4,19 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <dirent.h>
-
+#include <stdbool.h>
 #define PATH_MAX 4096
 // Found within https://stackoverflow.com/questions/9449241/where-is-path-max-defined-in-linux
-
 #define CMDLINE_MAX 512
+#define MAX_TOKENS 17 
+struct Process {
+        char* args[MAX_TOKENS];
+        bool redirection;
+        char* fileName; 
+}; 
 
 
-void executeCd(char* pathToChange){
+void ExecuteCd(char* pathToChange){
         
         // Check if the path exists first 
         DIR *directoryPointer; 
@@ -36,7 +41,7 @@ void executeCd(char* pathToChange){
 
 }
 
-void executePwd() {
+void ExecutePwd() {
         char current_directory[PATH_MAX]; 
         getcwd(current_directory, sizeof(current_directory)); 
         fprintf(stdout, "%s\n", current_directory); 
@@ -48,7 +53,7 @@ void executePwd() {
 // Input: User inputted command
 // Output: exit status of execution
 
-void splitCommandLine(char* command, char** args) {
+void SplitCommandLine(char* command, char** args) {
         
         int tokenInteger = 0; 
         
@@ -61,53 +66,90 @@ void splitCommandLine(char* command, char** args) {
                 token = strtok(NULL, " ");
         }
         args[tokenInteger] = NULL;
-
-        // Comments for phase 4 
-        /* 
-        Make sure to check that the number of arguements is less than 16 (command + number of args)
-        ls folder > file.txt 
-        Input: "ls", "folder", ">", "file.txt", NULL 
-        P1:"ls", "folder", NULL 
-        ">" "file.txt"
-                1st Step: 
-                Before: (STDOUT P1) -> terminal
-                After: (STDOUT P1) -> file.txt 
-                2nd Step: 
-                Execute P1 
-        ls folder > file.txt | cat file.txt
-        "ls", "folder", "|", "cat", file.txt", NULL
-        P1: "ls", "folder", NULL 
-        P2: "cat", file.txt", NULL
-        (STDOUT P1) -> (STDIN P2), (STDOUT) -> Terminal   
-        */
-         
 }
 
-/* 
-void outputRedirection(char** args){
+struct Process createProcess(char** processTokens, int tokensLength) {
+        /* Create a process struct*/
+        struct Process process; 
+        
+        /* Create local variables and properties*/
+        int argsToken = 0; 
+        bool redirection = false;
+        char* filename = ""; 
+        char* args[MAX_TOKENS];
 
-        char* leftHalf[17]; 
-        char* rightHalf[17];
-        // Finding the length of an array 
-        int length = (sizeof args / sizeof args[0]);
-        for (int i = 0; i < length; i++)
+        /* Go through the tokens */
+        for (int i = 0; i < tokensLength; i++)
         {
-                if (args[i] == ">") {
-                        for (int j = 0; j < i; j++){
-                                leftHalf[j] = args[j];
-                        }
-                        for (int j = (i+1); j < length; j++){
-                                rightHalf[j] = args[j];
-                                
-                        }
-                        
+                /* Reach a > and update properties */
+                if (!strcmp(processTokens[i], ">")) {
+                        redirection = true;
+                        filename = processTokens[i + 1];
+                        break;  
                 } 
+                /* Otherwise store the token */
+                args[i] = processTokens[i];
+                argsToken++;  
         }
-        // P1 = lefthalf of > :  "ls", "folder", NULL
-        // P2 = righthalf of > :  
-}
-*/ 
 
+        /* Store the tokens into the struct */
+        for (int i = 0; i < argsToken; i++)
+        {
+                process.args[i] = args[i]; 
+        }
+        /* Store the properties into the struct */
+        process.args[argsToken + 1] = NULL; 
+        process.fileName = filename; 
+        process.redirection = redirection; 
+        
+        return process; 
+
+}
+
+void ParseCommandLine(char* command, struct Process* processList) {
+        
+        /*Splitting the command line into tokens */
+        char* splitTokens[MAX_TOKENS]; 
+        SplitCommandLine(command, splitTokens); 
+
+        /* Going through each token and create a process */
+        int numberProcess = 0; 
+        int startCounter = 0; 
+        int tokensLength = (sizeof splitTokens / sizeof splitTokens[0]);
+        for (int i = 0; i < tokensLength; i++)
+        {
+                if (!strcmp(splitTokens[i], "|")) {
+                        char* processTokens[MAX_TOKENS];
+                        int numberTokens = 0; 
+                        /* Copy everything up to the pipe */
+                        for (int j = startCounter; j < i-1; j++)
+                        {
+                                processTokens[j] = splitTokens[j]; 
+                                numberTokens++; 
+                        }
+
+                        /* Create a process struct and store it */
+                        struct Process process = createProcess(processTokens, numberTokens);
+                        processList[numberProcess] = process; 
+                        numberProcess++; 
+
+                        /* Reset the starting counter for the process */
+                        startCounter = (i++); 
+                }
+        }
+
+        /* Storing the last process */
+        char* processTokens[MAX_TOKENS];
+        int numberTokens = 0;
+        for (int j = startCounter; j < tokensLength; j++)
+        {
+                processTokens[j] = splitTokens[j]; 
+        }
+        
+        struct Process process = createProcess(processTokens, numberTokens);
+        processList[numberProcess] = process; 
+        numberProcess++; 
+} 
 
 int ExecuteCommand(char** args) {
         
@@ -165,18 +207,18 @@ int main(void)
 
                 /* Builtin command for pwd */
                 if (!strcmp(cmd, "pwd")) {
-                        executePwd(); 
+                        ExecutePwd(); 
                         continue; 
                 }
 
-                char* args[17]; 
-                splitCommandLine(cmd, args); 
+                char* args[MAX_TOKENS]; 
+                SplitCommandLine(cmd, args); 
 
                 if (!strcmp(args[0], "cd")) {
-                        executeCd(args[1]); 
+                        ExecuteCd(args[1]); 
                         continue; 
                 }
-
+                
                 /* Regular command */
                 retval = ExecuteCommand(args);
                 fprintf(stdout, "Return status value for '%s': %d\n",
