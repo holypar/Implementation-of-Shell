@@ -10,71 +10,87 @@
 #define CMDLINE_MAX 512
 #define MAX_TOKENS 17 
 #define MAX_PROCESS 4
+#define MAX_TOKEN_LENGTH 32
+/*Data Structure for Processes*/
 struct Process {
         char* args[MAX_TOKENS];
         bool redirection;
         char* fileName; 
 }; 
 
-
-void ExecuteCd(char* pathToChange){
+/*Built in command for cd */
+int ExecuteCd(char* pathToChange){
         
-        // Check if the path exists first 
-        DIR *directoryPointer; 
-        struct dirent *dp; 
-        int canChange = 0; 
-        // Doesn't work for absolute path right now. Need to change in the future. 
-        directoryPointer = opendir("."); 
-
-        while ((dp = readdir(directoryPointer)) != NULL) {
-                if (!(strcmp(dp->d_name, pathToChange))) {
-                        canChange = 1;
-                        break; 
-                }
-        
-        }
-        if (canChange) {
-                chdir(pathToChange);
-                fprintf(stdout, "%s\n", "Changed Directory"); 
-        } else {
-                fprintf(stderr, "%s\n", "Error: cannot cd into directory");
-        }
-
+        if (chdir(pathToChange) != 0) 
+                return 1; 
+        return 0; 
 }
 
+/*Built in command for pwd */
 void ExecutePwd() {
+        /* Creating maximum string to store file path */
         char current_directory[PATH_MAX]; 
         getcwd(current_directory, sizeof(current_directory)); 
+
+        /* Printing the output the terminal */
         fprintf(stdout, "%s\n", current_directory); 
-        fprintf(stdout, "Return status value for '%s': %d\n", "pwd", 0);
+        fprintf(stdout, "+ completed 'pwd' [0]\n");
 }
 
-// Function for executing a comand and parsing the command line 
-// Source: Lecture from fork_exec_wait.c
-// Input: User inputted command
-// Output: exit status of execution
-
 int SplitCommandLine(char* command, char** args) {
-        
-        int tokenInteger = 0; 
+        // echo Hello world>file 
+        // What we have: echo, Hello, world>file
+        // What we want: echo, Hello, world, >, file
+        // echo Hello world | grep Hello|wc -l
+        // What we have:  echo, Hello, world, |, grep, Hello|wc, -l,
+        // What we want:  echo, Hello, world, |, grep, Hello, |, wc, -l,
+        unsigned int tokenInteger = 0; 
         
         char* token = strtok(command, " "); 
         
+        bool needsTostore = true; 
         while (token != NULL) {
+                for (unsigned int i = 0; i < strlen(token); i++ ){
+                        if (token[i] == '>' || token[i] == '|') {
+                                char beforeSymbol[MAX_TOKEN_LENGTH];
+                                char afterSymbol[MAX_TOKEN_LENGTH];
+                                char symbol[2]; 
+                                for (unsigned int j = 0; j < i; j++){
+                                        beforeSymbol[j] = token[j];
+                                }
+                                for (unsigned int j = i+1; j < strlen(token); j++){
+                                        afterSymbol[j-(i+1)] = token[j];
+                                }
 
-                args[tokenInteger] = token; 
-                tokenInteger++;
+                                args[tokenInteger] = beforeSymbol;
+                                tokenInteger++;
+                                symbol[0] = token[i]; 
+                                symbol[1] = '\0'; 
+                                args[tokenInteger] = symbol;
+                                tokenInteger++;
+                                args[tokenInteger]= afterSymbol;
+                                needsTostore = false; 
+                                tokenInteger++;
+                        }
+                }
+                if (needsTostore) {
+                        args[tokenInteger] = token; 
+                        tokenInteger++;
+                        
+                }
                 token = strtok(NULL, " ");
+                needsTostore = true; 
+                
         }
         args[tokenInteger] = NULL;
         return tokenInteger; 
 }
 
 struct Process createProcess(char** processTokens, int tokensLength) {
-        /* Create a process struct*/
+        /* Create a process struct */
         struct Process process; 
         
-        /* Create local variables and properties*/
+        /* Create local variables and properties */
         int argsToken = 0; 
         bool redirection = false;
         char* filename = ""; 
@@ -205,6 +221,7 @@ int main(void)
                 /* Builtin command */
                 if (!strcmp(cmd, "exit")) {
                         fprintf(stderr, "Bye...\n");
+                        fprintf(stdout, "+ completed 'exit' [0]\n");
                         break;
                 }
 
@@ -214,20 +231,21 @@ int main(void)
                         continue; 
                 }
                 
-                
                 struct Process processList[MAX_PROCESS]; 
                 ParseCommandLine(cmd, processList);
                 struct Process first_process = processList[0]; 
 
                 if (!strcmp(first_process.args[0], "cd")) {
-                        ExecuteCd(first_process.args[1]); 
-                        continue; 
+                        retval = ExecuteCd(first_process.args[1]);
+                        fprintf(stdout, "+ completed '%s' [%d]\n",
+                        cmd, retval);
+                        continue;  
                 }
 
                 /* Regular command */
                 retval = ExecuteCommand(first_process);
-                fprintf(stdout, "Return status value for '%s': %d\n",
-                         cmd, retval);
+                fprintf(stdout, "+ completed '%s' [%d]\n",
+                        cmd, retval);
         }
 
         return EXIT_SUCCESS;
