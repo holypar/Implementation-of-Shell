@@ -5,28 +5,38 @@
 #include <sys/wait.h>
 #include <dirent.h>
 #include <stdbool.h>
+#include <fcntl.h>
+
 #define PATH_MAX 4096
 // Found within https://stackoverflow.com/questions/9449241/where-is-path-max-defined-in-linux
 #define CMDLINE_MAX 512
 #define MAX_TOKENS 17 
 #define MAX_PROCESS 4
 #define MAX_TOKEN_LENGTH 32
-/*Data Structure for Processes*/
+
+
+//fd = open(filename.txt, O_CREAT | O_TRUNC | O_WRONLY)
+// fd = open("myfile.txt", O_WRONLY | O_CREAT, 0644)
+//dup2(fd, STDOUT_FILENO)
+
+
+
+/* Data Structure for Processes*/
 struct Process {
         char* args[MAX_TOKENS];
         bool redirection;
         char* fileName; 
 }; 
 
-/*Built in command for cd */
+/* Built in command for cd */
 int ExecuteCd(char* pathToChange){
-        
+        /* Checking to see if chdir fails */
         if (chdir(pathToChange) != 0) 
                 return 1; 
         return 0; 
 }
 
-/*Built in command for pwd */
+/* Built in command for pwd */
 void ExecutePwd() {
         /* Creating maximum string to store file path */
         char current_directory[PATH_MAX]; 
@@ -38,23 +48,24 @@ void ExecutePwd() {
 }
 
 int SplitCommandLine(char* command, char** args) {
-        // echo Hello world>file 
-        // What we have: echo, Hello, world>file
-        // What we want: echo, Hello, world, >, file
-        // echo Hello world | grep Hello|wc -l
-        // What we have:  echo, Hello, world, |, grep, Hello|wc, -l,
-        // What we want:  echo, Hello, world, |, grep, Hello, |, wc, -l,
+        
         unsigned int tokenInteger = 0; 
         
         char* token = strtok(command, " "); 
-        
-        bool needsTostore = true; 
+        bool needsToStore = true; 
+
+        /* Going through each token one by one */
         while (token != NULL) {
                 for (unsigned int i = 0; i < strlen(token); i++ ){
+                        /* Specific Edge Case if symbol is inside token */
                         if (token[i] == '>' || token[i] == '|') {
+                                /* Splitting the string before and after the symbol*/
+                                // >, |, >&, |&,
                                 char beforeSymbol[MAX_TOKEN_LENGTH];
                                 char afterSymbol[MAX_TOKEN_LENGTH];
                                 char symbol[2]; 
+
+                                /* Copies everything before the symbol and after the symbol*/
                                 for (unsigned int j = 0; j < i; j++){
                                         beforeSymbol[j] = token[j];
                                 }
@@ -62,27 +73,34 @@ int SplitCommandLine(char* command, char** args) {
                                         afterSymbol[j-(i+1)] = token[j];
                                 }
 
+                                /* Storing the 3 separate tokens */
                                 args[tokenInteger] = beforeSymbol;
                                 tokenInteger++;
+
                                 symbol[0] = token[i]; 
                                 symbol[1] = '\0'; 
                                 args[tokenInteger] = symbol;
                                 tokenInteger++;
+
                                 args[tokenInteger]= afterSymbol;
-                                needsTostore = false; 
                                 tokenInteger++;
+                                /* Token no longer needs to be stored */
+                                needsToStore = false; 
+                                
                         }
                 }
-                if (needsTostore) {
+                /* If token needs to be stored, store it */
+                if (needsToStore) {
                         args[tokenInteger] = token; 
                         tokenInteger++;
                         
                 }
+                /* Gets the next token and updates the needs to be stored boolean */
                 token = strtok(NULL, " ");
-                needsTostore = true; 
+                needsToStore = true; 
                 
         }
-        args[tokenInteger] = NULL;
+        /* Storing the last token as NULL */
         return tokenInteger; 
 }
 
@@ -115,8 +133,8 @@ struct Process createProcess(char** processTokens, int tokensLength) {
         {
                 process.args[i] = args[i]; 
         }
+
         /* Store the properties into the struct */
-      
         process.args[argsToken] = NULL; 
         process.fileName = filename; 
         process.redirection = redirection; 
@@ -176,7 +194,12 @@ int ExecuteCommand(struct Process process) {
         
         pid = fork();
         if (pid == 0) {
-                // Child 
+                if (process.redirection) {
+                        int fd; 
+                        fd = open(process.fileName, O_WRONLY | O_CREAT, 0644);
+                        dup2(fd, STDOUT_FILENO); 
+                        close(fd);  
+                }
                 execvp(process.args[0], process.args); 
                 perror("execv");
                 exit(1);
