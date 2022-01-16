@@ -49,8 +49,7 @@ void ExecutePwd() {
 
 int SplitCommandLine(char* command, char** args) {
         
-        unsigned int tokenInteger = 0; 
-        
+        unsigned int tokenInteger = 0;  
         char* token = strtok(command, " "); 
         bool needsToStore = true; 
 
@@ -58,11 +57,12 @@ int SplitCommandLine(char* command, char** args) {
         while (token != NULL) {
                 for (unsigned int i = 0; i < strlen(token); i++ ){
                         /* Specific Edge Case if symbol is inside token */
-                        if (token[i] == '>' || token[i] == '|') {
+                        // echo Hello World > file.txt 
+                        if ((token[i] == '>' || token[i] == '|') && (strlen(token) > 1)) {
                                 /* Splitting the string before and after the symbol*/
                                 // >, |, >&, |&,
-                                char beforeSymbol[MAX_TOKEN_LENGTH];
-                                char afterSymbol[MAX_TOKEN_LENGTH];
+                                char beforeSymbol[MAX_TOKEN_LENGTH] = "";
+                                char afterSymbol[MAX_TOKEN_LENGTH] = "";
                                 char symbol[2]; 
 
                                 /* Copies everything before the symbol and after the symbol*/
@@ -71,8 +71,8 @@ int SplitCommandLine(char* command, char** args) {
                                 }
                                 for (unsigned int j = i+1; j < strlen(token); j++){
                                         afterSymbol[j-(i+1)] = token[j];
-                                }
-
+                                }   
+                                
                                 /* Storing the 3 separate tokens */
                                 args[tokenInteger] = beforeSymbol;
                                 tokenInteger++;
@@ -84,6 +84,7 @@ int SplitCommandLine(char* command, char** args) {
 
                                 args[tokenInteger]= afterSymbol;
                                 tokenInteger++;
+                                
                                 /* Token no longer needs to be stored */
                                 needsToStore = false; 
                                 
@@ -194,14 +195,17 @@ int ExecuteCommand(struct Process process) {
         
         pid = fork();
         if (pid == 0) {
+                /* If the process has a redirection, redirect it to process with the filename */
                 if (process.redirection) {
                         int fd; 
+                        
+                        /* Opens the filename and redirects the stream to the file */
                         fd = open(process.fileName, O_WRONLY | O_CREAT, 0644);
                         dup2(fd, STDOUT_FILENO); 
                         close(fd);  
                 }
                 execvp(process.args[0], process.args); 
-                perror("execv");
+                perror("execvp");
                 exit(1);
         } else if (pid > 0) {
                 // Parent 
@@ -255,20 +259,27 @@ int main(void)
                 }
                 
                 struct Process processList[MAX_PROCESS]; 
+
+                /* Copies the commandline for later use */
+                char copycmd[CMDLINE_MAX];
+                strcpy(copycmd, cmd); 
+
+                /* Parses the command line into processes */
                 ParseCommandLine(cmd, processList);
                 struct Process first_process = processList[0]; 
 
+                /* Builtin command for cd */
                 if (!strcmp(first_process.args[0], "cd")) {
                         retval = ExecuteCd(first_process.args[1]);
                         fprintf(stdout, "+ completed '%s' [%d]\n",
-                        cmd, retval);
+                        copycmd, retval);
                         continue;  
                 }
 
                 /* Regular command */
                 retval = ExecuteCommand(first_process);
                 fprintf(stdout, "+ completed '%s' [%d]\n",
-                        cmd, retval);
+                        copycmd, retval);
         }
 
         return EXIT_SUCCESS;
