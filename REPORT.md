@@ -14,8 +14,8 @@ then separated tokens by a pipe to make distinct parts.
 Then we go through each part to check for a redirection and make a process struct. 
 This process is stored into an array of process structures. 
 
-
-
+#### Builtin Functions ####
+For the built in functions, we execute both pwd and cd as specified using the syscalls from lecture. Each of them has a specific return value associated with it.
 
 ## Conclusion ##
 

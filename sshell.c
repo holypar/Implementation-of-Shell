@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <dirent.h>
 #include <stdbool.h>
 #include <fcntl.h>
@@ -39,12 +40,30 @@ int ExecuteCd(char* pathToChange){
 /* Built in command for pwd */
 void ExecutePwd() {
         /* Creating maximum string to store file path */
-        char current_directory[PATH_MAX]; 
-        getcwd(current_directory, sizeof(current_directory)); 
+        char currentDirectory[PATH_MAX]; 
+        getcwd(currentDirectory, sizeof(currentDirectory)); 
 
         /* Printing the output the terminal */
-        fprintf(stdout, "%s\n", current_directory); 
-        fprintf(stdout, "+ completed 'pwd' [0]\n");
+        fprintf(stdout, "%s\n", currentDirectory); 
+}
+
+void Executesls() {
+        /* Creating local variables for storage */
+        long long fileSize; 
+        DIR *currentDirectory;  
+        struct stat statistic;
+        struct dirent *dp; 
+
+        /* Opening the current directory and iterating through the directory */
+        currentDirectory = opendir("."); 
+        while ((dp = readdir(currentDirectory)) != NULL) {
+                /* Getting the current file statistic and printing it */
+                if (dp->d_name[0] == '.') 
+                        continue; 
+                stat(dp->d_name, &statistic); 
+                fileSize = statistic.st_size; 
+                printf("%s (%lld bytes)\n", dp->d_name, fileSize); 
+        }
 }
 
 int SplitCommandLine(char* command, char** args) {
@@ -189,11 +208,81 @@ void ParseCommandLine(char* command, struct Process* processList) {
         numberProcess++; 
 } 
 
+
+// void myPiping(struct Process* process, int numberOfPipes) {
+//         int fd[2];
+//         int processStatus[numberOfPipes-1];
+//         pid_t pid[numberOfPipes-1];
+
+//         pipe(fd);
+//         for(int i = 0; i < numberOfPipes; i++){
+//                 pid[i] = fork();
+//                 //children
+//                 if (pid[i] == 0){
+//                         close(fd[0]);
+//                         dup2(fd[1],STDOUT_FILENO);
+//                         close(fd[1]);
+//                         execvp(process[i].args[0],process[i].args);
+//                         exit(1);
+//                 }
+//                 //parents
+//                 dup2(fd[0], STDOUT_FILENO);
+//                 close(fd[1]);
+//                 close(fd[0]);
+//                 execvp(process[numberOfPipes-1].args[0], process[numberOfPipes-1].args);
+//                 for (int i = 0; i < numberOfPipes -1; i++) {
+//                         waitpid(pid[i], &processStatus[i], 0);
+//                 }
+
+//         }
+
+// }
+
+// P1: writing of the pipe <-> STDOUT of the process 
+// P2: reading of the pipe <-> STDIN of the process 
+// Terminal <-> P1:IN <-> Execute P1 <-> P1:Out <-> writing <-> reading <-> P2:In <-> Execute P2 <-> P2:Out <-> Terminal  
+// Terminal <-> P1:IN 
+// Terminal <-> P2:IN --> Pipe -> P2:IN 
+// P1:OUT <-> Terminal --> P1:OUT -> Pipe 
+// P2:OUT <-> Terminal
+
+// void pipeline(char *process1, char *process2)
+// {
+//     int fd[2];
+//     pipe(fd);
+//     if (fork() != 0) {  /* Parent */
+//         /* No need for read access */
+//         close(fd[0]);
+//         /* Replace stdout with pipe */
+//         dup2(fd[1], STDOUT_FILENO);
+//         /* Close now unused FD */
+//         close(fd[1]);
+//         /* Parent becomes process1 */
+//         exec(process1);
+//     } else {            /* Child */
+//         /* No need for write access */
+//         close(fd[1]);
+//         /* Replace stdin with pipe */
+//         dup(fd[0], STDIN_FILENO);
+//         /* Close now unused FD */
+//         close(fd[0]);
+//         /* Child becomes process2 */
+//         exec(process2);
+//     }
+// }
+
+// Shell(Parent) -> P1(Child)
+// Shell(Parent) -> P1(Child) -> P2 (Child)
+// Shell(Parent1) -> P1(Parent2) -> P2 (Child)
 int ExecuteCommand(struct Process process) {
+        //3 pipes
+        //4prceesses
+        //input: processlist 
+        //pipes = numberProcess - 1
         
         pid_t pid;
-        
-        pid = fork();
+        //for loop
+        pid = fork(); // pid array
         if (pid == 0) {
                 /* If the process has a redirection, redirect it to process with the filename */
                 if (process.redirection) {
@@ -217,7 +306,11 @@ int ExecuteCommand(struct Process process) {
                 perror("fork");
                 exit(1);
         }
+
+        //for loop ends
 }
+
+ 
 
 int main(void)
 {
@@ -245,19 +338,7 @@ int main(void)
                 if (nl)
                         *nl = '\0';
 
-                /* Builtin command */
-                if (!strcmp(cmd, "exit")) {
-                        fprintf(stderr, "Bye...\n");
-                        fprintf(stdout, "+ completed 'exit' [0]\n");
-                        break;
-                }
-
-                /* Builtin command for pwd */
-                if (!strcmp(cmd, "pwd")) {
-                        ExecutePwd(); 
-                        continue; 
-                }
-                
+                /* Create a process list full of process structures */
                 struct Process processList[MAX_PROCESS]; 
 
                 /* Copies the commandline for later use */
@@ -268,12 +349,32 @@ int main(void)
                 ParseCommandLine(cmd, processList);
                 struct Process first_process = processList[0]; 
 
+                /* Builtin command for exit*/
+                if (!strcmp(first_process.args[0], "exit")) {
+                        fprintf(stderr, "Bye...\n");
+                        fprintf(stdout, "+ completed 'exit' [0]\n");
+                        break;
+                }
+
                 /* Builtin command for cd */
                 if (!strcmp(first_process.args[0], "cd")) {
                         retval = ExecuteCd(first_process.args[1]);
                         fprintf(stdout, "+ completed '%s' [%d]\n",
                         copycmd, retval);
                         continue;  
+                }
+
+                /* Builtin command for pwd */
+                if (!strcmp(first_process.args[0], "pwd")) {
+                        ExecutePwd(); 
+                        fprintf(stdout, "+ completed '%s' [0]\n", copycmd);
+                        continue; 
+                }
+
+                if (!strcmp(first_process.args[0], "sls")) {
+                        Executesls(); 
+                        fprintf(stdout, "+ completed '%s' [0]\n", copycmd);
+                        continue; 
                 }
 
                 /* Regular command */
