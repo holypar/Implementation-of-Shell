@@ -26,6 +26,7 @@
 struct Process {
         char* args[MAX_TOKENS];
         bool redirection;
+        bool errorRedirect; 
         char* fileName; 
 }; 
 
@@ -82,17 +83,13 @@ int SplitCommandLine(char* command, char** args) {
         char* token = strtok(command, " "); 
         bool needsToStore = true; 
 
-
-
-
         /* Going through each token one by one */
         while (token != NULL) {
                 for (unsigned int i = 0; i < strlen(token); i++ ){
                         /* Specific Edge Case if symbol is inside token */
                         // echo Hello World > file.txt 
-                        if ((token[i] == '>' || token[i] == '|') && (strlen(token) > 1)) {
-                                /* Splitting the string before and after the symbol*/
-                                // >, |, >&, |&,
+                        if ((token[i] == '>' || token[i] == '|') && (strlen(token) > 2)) {
+                                /* Splitting the string before and after the symbol */
                                 int offset = 1; 
                                 if (token[i+1] == '&') {
                                         offset++; 
@@ -157,6 +154,7 @@ struct Process createProcess(char** processTokens, int tokensLength) {
         /* Create local variables and properties */
         int argsToken = 0; 
         bool redirection = false;
+        bool errorRedirect = false; 
         char* filename = ""; 
         char* args[MAX_TOKENS];
 
@@ -164,7 +162,9 @@ struct Process createProcess(char** processTokens, int tokensLength) {
         for (int i = 0; i < tokensLength; i++)
         {
                 /* Reach a > and update properties */
-                if (!strcmp(processTokens[i], ">")) {
+                if (!strcmp(processTokens[i], ">") || !strcmp(processTokens[i], ">&")) {
+                        if (!strcmp(processTokens[i], ">&")) 
+                                errorRedirect = true; 
                         redirection = true;
                         filename = processTokens[i + 1];
                         break;  
@@ -179,12 +179,12 @@ struct Process createProcess(char** processTokens, int tokensLength) {
         {
                 process.args[i] = args[i]; 
         }
-
+        
         /* Store the properties into the struct */
         process.args[argsToken] = NULL; 
         process.fileName = filename; 
         process.redirection = redirection; 
-        
+        process.errorRedirect = errorRedirect; 
         return process; 
 
 }
@@ -266,7 +266,7 @@ struct ProcessLogic ParseCommandLine(char* command, struct Process* processList)
         
         for (int i = 0; i < tokensLength - 1; i++)
         {
-                if (!strcmp(splitTokens[i], "|")) {
+                if (!strcmp(splitTokens[i], "|") || !strcmp(splitTokens[i], "|&")) {
                         char* processTokens[MAX_TOKENS];
                         int numberTokens = 0; 
                         /* Copy everything up to the pipe */
@@ -275,9 +275,12 @@ struct ProcessLogic ParseCommandLine(char* command, struct Process* processList)
                                 processTokens[j] = splitTokens[j]; 
                                 numberTokens++; 
                         }
-
+                        
                         /* Create a process struct and store it */
                         struct Process process = createProcess(processTokens, numberTokens);
+                        if (!strcmp(splitTokens[i], "|&")) {
+                                process.errorRedirect = true; 
+                        }
                         processList[numberProcess] = process; 
                         numberProcess++; 
 
@@ -398,10 +401,11 @@ int ExecuteCommand(struct Process process) {
                 /* If the process has a redirection, redirect it to process with the filename */
                 if (process.redirection) {
                         int fd; 
-                        
                         /* Opens the filename and redirects the stream to the file */
                         fd = open(process.fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                         dup2(fd, STDOUT_FILENO); 
+                        if (process.errorRedirect) 
+                                dup2(fd, STDERR_FILENO); 
                         close(fd);  
                 }
                 execvp(process.args[0], process.args); 
