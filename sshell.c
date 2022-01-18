@@ -14,27 +14,36 @@
 #define MAX_TOKENS 17 
 #define MAX_PROCESS 4
 #define MAX_TOKEN_LENGTH 32
-
-
+#define ERROR_NUMBER 1
+#define SUCCESS_NUMBER 0 
 //fd = open(filename.txt, O_CREAT | O_TRUNC | O_WRONLY)
 // fd = open("myfile.txt", O_WRONLY | O_CREAT, 0644)
 //dup2(fd, STDOUT_FILENO)
 
 
 
-/* Data Structure for Processes*/
+/* Data Structure for Processes */
 struct Process {
         char* args[MAX_TOKENS];
         bool redirection;
         char* fileName; 
 }; 
 
+/* Data Structure for Process Logistics */
+struct ProcessLogic {
+        int outputCode; 
+        int numberProcesses; 
+}; 
+
 /* Built in command for cd */
 int ExecuteCd(char* pathToChange){
         /* Checking to see if chdir fails */
-        if (chdir(pathToChange) != 0) 
-                return 1; 
-        return 0; 
+        if (chdir(pathToChange) != 0) {
+                fprintf(stderr,"Error: cannot cd into directory\n"); 
+                return ERROR_NUMBER; 
+        }
+                
+        return SUCCESS_NUMBER; 
 }
 
 /* Built in command for pwd */
@@ -47,7 +56,8 @@ void ExecutePwd() {
         fprintf(stdout, "%s\n", currentDirectory); 
 }
 
-void Executesls() {
+/* Built in command for sls */
+void ExecuteSls() {
         /* Creating local variables for storage */
         long long fileSize; 
         DIR *currentDirectory;  
@@ -72,6 +82,9 @@ int SplitCommandLine(char* command, char** args) {
         char* token = strtok(command, " "); 
         bool needsToStore = true; 
 
+
+
+
         /* Going through each token one by one */
         while (token != NULL) {
                 for (unsigned int i = 0; i < strlen(token); i++ ){
@@ -80,24 +93,35 @@ int SplitCommandLine(char* command, char** args) {
                         if ((token[i] == '>' || token[i] == '|') && (strlen(token) > 1)) {
                                 /* Splitting the string before and after the symbol*/
                                 // >, |, >&, |&,
+                                int offset = 1; 
+                                if (token[i+1] == '&') {
+                                        offset++; 
+                                }
+
                                 char beforeSymbol[MAX_TOKEN_LENGTH] = "";
                                 char afterSymbol[MAX_TOKEN_LENGTH] = "";
-                                char symbol[2]; 
+                                char symbol[3]; 
 
-                                /* Copies everything before the symbol and after the symbol*/
                                 for (unsigned int j = 0; j < i; j++){
                                         beforeSymbol[j] = token[j];
                                 }
-                                for (unsigned int j = i+1; j < strlen(token); j++){
-                                        afterSymbol[j-(i+1)] = token[j];
+                                for (unsigned int j = i+offset; j < strlen(token); j++){
+                                        afterSymbol[j-(i+offset)] = token[j];
                                 }   
                                 
                                 /* Storing the 3 separate tokens */
                                 args[tokenInteger] = beforeSymbol;
                                 tokenInteger++;
 
-                                symbol[0] = token[i]; 
-                                symbol[1] = '\0'; 
+                                if (token[i+1] == '&') {
+                                        symbol[0] = token[i];
+                                        symbol[1] = token[i+1];
+                                        symbol[2] = '\0';
+                                } else {
+                                        symbol[0] = token[i];
+                                        symbol[1] = '\0';
+                                }
+                                 
                                 args[tokenInteger] = symbol;
                                 tokenInteger++;
 
@@ -120,6 +144,8 @@ int SplitCommandLine(char* command, char** args) {
                 needsToStore = true; 
                 
         }
+        args[tokenInteger] = NULL;
+        tokenInteger++; 
         /* Storing the last token as NULL */
         return tokenInteger; 
 }
@@ -163,16 +189,82 @@ struct Process createProcess(char** processTokens, int tokensLength) {
 
 }
 
-void ParseCommandLine(char* command, struct Process* processList) {
+int CheckMissingCommand(char* token, char* nextToken) {
+        return ( ((!strcmp(token, "|")) && (nextToken == NULL)) 
+        || ((!strcmp(token, "|")) && (!strcmp(nextToken, "|"))) );  
+}
+
+int CheckNoOutputFile(char* token, char* nextToken) {
+        return ( ((!strcmp(token, ">")) && (nextToken == NULL)) 
+        || ((!strcmp(token, ">")) && (!strcmp(nextToken, "|"))) );
+}
+
+int CheckOutputFile(char* token, char* nextToken) {
+        return (!strcmp(token, ">") && nextToken != NULL && (strcmp(nextToken, "|"))); 
+}
+
+int CheckParsing(char** splitTokens, int tokensLength) {
+        if (tokensLength > 16) {
+                fprintf(stderr,"Error: too many process arguments\n");
+                return ERROR_NUMBER;
+        }
+        
+        if (!strcmp(splitTokens[0], "|") || !strcmp(splitTokens[0], ">") || !strcmp(splitTokens[0], " ")){
+                fprintf(stderr,"Error: missing command\n");
+                return ERROR_NUMBER;
+        }
+        bool redirectionFound = false; 
+        for (int i = 0; i < tokensLength - 1; i++)
+        {
+                if (redirectionFound && !strcmp(splitTokens[i], "|")) {
+                        fprintf(stderr,"Error: mislocated output redirection\n");
+                        return ERROR_NUMBER;
+                }
+
+                if (CheckMissingCommand(splitTokens[i], splitTokens[i+1])) {
+                        fprintf(stderr,"Error: missing command\n");
+                        return ERROR_NUMBER;
+                }
+
+                if (CheckNoOutputFile(splitTokens[i], splitTokens[i+1])) {
+                        fprintf(stderr,"Error: no output file\n");
+                        return ERROR_NUMBER;
+                } 
+                // if (CheckOutputFile(splitTokens[i], splitTokens[i+1])) {
+                //         int fd = open(splitTokens[i+1], O_WRONLY, O_CREAT, 0644);
+                //         if (fd == -1) {
+                //                 fprintf(stderr,"Error: cannot open output file\n");
+                //                 close(fd);
+                //                 return ERROR_NUMBER;
+                //         }
+        
+                // } 
+                if (!strcmp(splitTokens[i], ">")) 
+                        redirectionFound = true; 
+        }
+        return SUCCESS_NUMBER; 
+
+}
+
+struct ProcessLogic ParseCommandLine(char* command, struct Process* processList) {
         /*Splitting the command line into tokens */
         char* splitTokens[MAX_TOKENS]; 
         int tokensLength = SplitCommandLine(command, splitTokens); 
+        struct ProcessLogic logicstics; 
+        // Check all parsing errors here: 
+        int returnCode = CheckParsing(splitTokens, tokensLength); 
+
+        if (returnCode) {
+                logicstics.numberProcesses = 0; 
+                logicstics.outputCode = returnCode; 
+                return logicstics; 
+        }
 
         /* Going through each token and create a process */
         int numberProcess = 0; 
         int startCounter = 0; 
         
-        for (int i = 0; i < tokensLength; i++)
+        for (int i = 0; i < tokensLength - 1; i++)
         {
                 if (!strcmp(splitTokens[i], "|")) {
                         char* processTokens[MAX_TOKENS];
@@ -197,7 +289,7 @@ void ParseCommandLine(char* command, struct Process* processList) {
         /* Storing the last process */
         char* processTokens[MAX_TOKENS];
         int numberTokens = 0;
-        for (int j = startCounter; j < tokensLength; j++)
+        for (int j = startCounter; j < tokensLength - 1; j++)
         {
                 processTokens[j] = splitTokens[j];
                 numberTokens++;  
@@ -205,7 +297,11 @@ void ParseCommandLine(char* command, struct Process* processList) {
         
         struct Process process = createProcess(processTokens, numberTokens);
         processList[numberProcess] = process; 
-        numberProcess++; 
+        numberProcess++;
+
+        logicstics.numberProcesses = numberProcess; 
+        logicstics.outputCode = returnCode; 
+        return logicstics; 
 } 
 
 
@@ -274,6 +370,21 @@ void ParseCommandLine(char* command, struct Process* processList) {
 // Shell(Parent) -> P1(Child)
 // Shell(Parent) -> P1(Child) -> P2 (Child)
 // Shell(Parent1) -> P1(Parent2) -> P2 (Child)
+
+// P1 > file 
+// P1 -> file : STDOUT 
+// STDOUT -> file 
+// STDERR -> Terminal 
+
+// P1 >& file 
+// P1 -> : STDOUT and STDERR 
+// STDOUT -> file 
+// STDERR -> file 
+
+// P1 | P2 
+// P1 -> P2 STDOUT P1 -> STDIN P2 
+// P1 |& P2 (STDOUT P1 and STDERR P1) -> STDIN P2
+
 int ExecuteCommand(struct Process process) {
         //3 pipes
         //4prceesses
@@ -289,12 +400,12 @@ int ExecuteCommand(struct Process process) {
                         int fd; 
                         
                         /* Opens the filename and redirects the stream to the file */
-                        fd = open(process.fileName, O_WRONLY | O_CREAT, 0644);
+                        fd = open(process.fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                         dup2(fd, STDOUT_FILENO); 
                         close(fd);  
                 }
                 execvp(process.args[0], process.args); 
-                perror("execvp");
+                fprintf(stderr, "Error: command not found\n");
                 exit(1);
         } else if (pid > 0) {
                 // Parent 
@@ -338,6 +449,9 @@ int main(void)
                 if (nl)
                         *nl = '\0';
 
+                /* If user just presses enter, it continues to ask for input */
+                if (!strcmp(cmd, "")) 
+                        continue; 
                 /* Create a process list full of process structures */
                 struct Process processList[MAX_PROCESS]; 
 
@@ -346,7 +460,10 @@ int main(void)
                 strcpy(copycmd, cmd); 
 
                 /* Parses the command line into processes */
-                ParseCommandLine(cmd, processList);
+                struct ProcessLogic logistics = ParseCommandLine(cmd, processList);
+                if (logistics.outputCode) {
+                        continue;
+                }
                 struct Process first_process = processList[0]; 
 
                 /* Builtin command for exit*/
@@ -372,7 +489,7 @@ int main(void)
                 }
 
                 if (!strcmp(first_process.args[0], "sls")) {
-                        Executesls(); 
+                        ExecuteSls(); 
                         fprintf(stdout, "+ completed '%s' [0]\n", copycmd);
                         continue; 
                 }
