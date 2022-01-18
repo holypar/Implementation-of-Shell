@@ -20,8 +20,6 @@
 // fd = open("myfile.txt", O_WRONLY | O_CREAT, 0644)
 //dup2(fd, STDOUT_FILENO)
 
-
-
 /* Data Structure for Processes */
 struct Process {
         char* args[MAX_TOKENS];
@@ -230,15 +228,20 @@ int CheckParsing(char** splitTokens, int tokensLength) {
                         fprintf(stderr,"Error: no output file\n");
                         return ERROR_NUMBER;
                 } 
-                // if (CheckOutputFile(splitTokens[i], splitTokens[i+1])) {
-                //         int fd = open(splitTokens[i+1], O_WRONLY, O_CREAT, 0644);
-                //         if (fd == -1) {
-                //                 fprintf(stderr,"Error: cannot open output file\n");
-                //                 close(fd);
-                //                 return ERROR_NUMBER;
-                //         }
-        
-                // } 
+                if (CheckOutputFile(splitTokens[i], splitTokens[i+1])) {
+                        
+                        /* Found function on https://stackoverflow.com/questions/230062/whats-the-best-way-to-check-if-a-file-exists-in-c*/
+                        /* Check if a file exists */
+                        if( access( splitTokens[i+1], F_OK ) == 0 ) {
+                                int fd = open(splitTokens[i+1], O_WRONLY, 0644);
+                                if (fd == -1) {
+                                        fprintf(stderr,"Error: cannot open output file\n");
+                                        close(fd);
+                                        return ERROR_NUMBER;
+                                } 
+                        }
+
+                } 
                 if (!strcmp(splitTokens[i], ">")) 
                         redirectionFound = true; 
         }
