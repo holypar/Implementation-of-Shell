@@ -242,18 +242,18 @@ int CheckParsing(char **splitTokens, int tokensLength)
                         return ERROR_NUMBER;
                 }
 
-                if (CheckMissingCommand(splitTokens[i], splitTokens[i + 1]))
+                if ((((!strcmp(splitTokens[i], "|")) && (splitTokens[i+1] == NULL)) || ((!strcmp(splitTokens[i], "|")) && (!strcmp(splitTokens[i+1], "|")))))
                 {
                         fprintf(stderr, "Error: missing command\n");
                         return ERROR_NUMBER;
                 }
 
-                if (CheckNoOutputFile(splitTokens[i], splitTokens[i + 1]))
+                if ((((!strcmp(splitTokens[i], ">")) && (splitTokens[i+1] == NULL)) || ((!strcmp(splitTokens[i], ">")) && (!strcmp(splitTokens[i+1], "|")))))
                 {
                         fprintf(stderr, "Error: no output file\n");
                         return ERROR_NUMBER;
                 }
-                if (CheckOutputFile(splitTokens[i], splitTokens[i + 1]))
+                if ((!strcmp(splitTokens[i], ">") && splitTokens[i+1] != NULL && (strcmp(splitTokens[i+1], "|"))))
                 {
 
                         /* Found function on https://stackoverflow.com/questions/230062/whats-the-best-way-to-check-if-a-file-exists-in-c*/
@@ -299,12 +299,12 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
         {
                 if (!strcmp(splitTokens[i], "|") || !strcmp(splitTokens[i], "|&"))
                 {
-                        char *processTokens[MAX_TOKENS];
+                        char *processTokens[MAX_TOKENS] = {};
                         int numberTokens = 0;
                         /* Copy everything up to the pipe */
                         for (int j = startCounter; j < i; j++)
                         {
-                                processTokens[j] = splitTokens[j];
+                                processTokens[j-startCounter] = splitTokens[j];
                                 numberTokens++;
                         }
 
@@ -318,20 +318,20 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
                         numberProcess++;
 
                         /* Reset the starting counter for the process */
-                        startCounter = (i++);
+                        startCounter = (i + 1);
                 }
         }
 
         /* Storing the last process */
-        char *processTokens[MAX_TOKENS];
+        char *lastTokens[MAX_TOKENS] = {};
         int numberTokens = 0;
         for (int j = startCounter; j < tokensLength - 1; j++)
         {
-                processTokens[j] = splitTokens[j];
+                lastTokens[j-startCounter] = splitTokens[j];
                 numberTokens++;
         }
 
-        struct Process process = createProcess(processTokens, numberTokens);
+        struct Process process = createProcess(lastTokens, numberTokens);
         processList[numberProcess] = process;
         numberProcess++;
 
