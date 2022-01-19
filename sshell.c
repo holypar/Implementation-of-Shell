@@ -500,12 +500,12 @@ int main(void)
                 ExecuteCommand(processList, logistics.numberProcesses, retValues);
 
                 /* Prints the final output */
-                fprintf(stdout, "+ completed '%s' ", copycmd);
+                fprintf(stderr, "+ completed '%s' ", copycmd);
                 for (int i = 0; i < logistics.numberProcesses; i++)
                 {
-                        fprintf(stdout, "[%d]", WEXITSTATUS(retValues[i]));
+                        fprintf(stderr, "[%d]", WEXITSTATUS(retValues[i]));
                 }
-                fprintf(stdout, "\n");
+                fprintf(stderr, "\n");
         }
 
         return EXIT_SUCCESS;
