@@ -466,7 +466,7 @@ int main(void)
                 if (!strcmp(first_process.args[0], "exit"))
                 {
                         fprintf(stderr, "Bye...\n");
-                        fprintf(stdout, "+ completed 'exit' [0]\n");
+                        fprintf(stderr, "+ completed 'exit' [0]\n");
                         break;
                 }
 
@@ -474,7 +474,7 @@ int main(void)
                 if (!strcmp(first_process.args[0], "cd"))
                 {
                         retval = ExecuteCd(first_process.args[1]);
-                        fprintf(stdout, "+ completed '%s' [%d]\n",
+                        fprintf(stderr, "+ completed '%s' [%d]\n",
                                 copycmd, retval);
                         continue;
                 }
@@ -483,7 +483,7 @@ int main(void)
                 if (!strcmp(first_process.args[0], "pwd"))
                 {
                         ExecutePwd();
-                        fprintf(stdout, "+ completed '%s' [0]\n", copycmd);
+                        fprintf(stderr, "+ completed '%s' [0]\n", copycmd);
                         continue;
                 }
                 
@@ -491,7 +491,7 @@ int main(void)
                 if (!strcmp(first_process.args[0], "sls"))
                 {
                         ExecuteSls();
-                        fprintf(stdout, "+ completed '%s' [0]\n", copycmd);
+                        fprintf(stderr, "+ completed '%s' [0]\n", copycmd);
                         continue;
                 }
 
