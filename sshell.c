@@ -345,30 +345,29 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
 
         pid_t pid[MAX_PROCESS];
         int fileDescriptors[2];  
-        
-        
+        int previousFileDescriptor; 
+        previousFileDescriptor = open("/dev/null", 0); 
         for (int i = 0; i < numProcesses; i++)
         {
-                pid[i]= fork();
-                pipe(fileDescriptors); 
+                pipe(fileDescriptors);
                 
+                pid[i]= fork();
+                 
                 if (pid[i] == 0) {
                         
-
-                        // pipe<-P2 -> pipe<-P3 -> pipe<-P4 ...
-                        // pipe -> 
-                
+                        // If it is not the first process
                         if (i != 0) {
-                                dup2(fileDescriptors[0], STDIN_FILENO); 
-                                close(fileDescriptors[0]); 
-                        }
-                        // If it is not the last process
-                        // P1 -> pipe P2 -> pipe P3 -> pipe
-                        if (i != (numProcesses - 1)) {
-                                dup2(fileDescriptors[1], STDOUT_FILENO);
-                                close(fileDescriptors[1]); 
+                                dup2(previousFileDescriptor, STDIN_FILENO);  
                         }
                         
+                        // If it is not the last process
+                        if (i != (numProcesses - 1)) {
+                                dup2(fileDescriptors[1], STDOUT_FILENO);
+                        }
+                        // Close all the pipes 
+                        close(previousFileDescriptor); 
+                        close(fileDescriptors[0]);
+                        close(fileDescriptors[1]);
 
                         if (processes[i].redirection)
                         {
@@ -384,14 +383,19 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
                         fprintf(stderr, "Error: command not found\n");
                         exit(1);
                 } else if (pid[i] > 0) {
-                        waitpid(pid[i], &(status[i]), 0);
+                        close(fileDescriptors[1]);
+                        close(previousFileDescriptor); 
+                        previousFileDescriptor = fileDescriptors[0]; 
                 } else {
                         // Handle Errors
                         perror("fork");
                         exit(1);
                 }
-                
-                
+        }
+        close(fileDescriptors[0]); 
+        for (int i = 0; i < numProcesses; i++)
+        {
+                waitpid(pid[i], &status[i], 0); 
         }
         
 }
@@ -412,8 +416,6 @@ If the process is the last process, we don't want dup2 on the write pipe.
 If the process finishes, we need to store it in the correct spot. 
 
 */
-
-
 
 int main(void)
 {
