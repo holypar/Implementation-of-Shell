@@ -202,6 +202,7 @@ struct Process createProcess(char **processTokens, int tokensLength)
         return process;
 }
 
+
 int CheckParsing(char **splitTokens, int tokensLength)
 {
         if (tokensLength > 16)
@@ -356,6 +357,8 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
                         /* Connect the out stream to the pipe */
                         if (i != (numProcesses - 1)) {
                                 dup2(fileDescriptors[1], STDOUT_FILENO);
+                                if (processes[i].errorRedirect) 
+                                        dup2(fileDescriptors[1], STDERR_FILENO); 
                         }
                         
                         /* Close all file descriptors */
