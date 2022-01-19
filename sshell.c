@@ -344,29 +344,31 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
 {
 
         pid_t pid[MAX_PROCESS];
-        int fileDescriptors[numProcesses][2];  
-        for (int i = 0; i < numProcesses; i++)
-        {
-                pipe(fileDescriptors[i]); 
-        }
+        int fileDescriptors[2];  
+        
         
         for (int i = 0; i < numProcesses; i++)
         {
                 pid[i]= fork();
-
+                pipe(fileDescriptors); 
+                
                 if (pid[i] == 0) {
                         
-                        // If it is not the first process
-                        // fileDescriptors[i] = the pipe at index i 
+
+                        // pipe<-P2 -> pipe<-P3 -> pipe<-P4 ...
+                        // pipe -> 
+                
                         if (i != 0) {
-                                dup2(fileDescriptors[i][0], STDIN_FILENO); 
+                                dup2(fileDescriptors[0], STDIN_FILENO); 
+                                close(fileDescriptors[0]); 
                         }
                         // If it is not the last process
+                        // P1 -> pipe P2 -> pipe P3 -> pipe
                         if (i != (numProcesses - 1)) {
-                                dup2(fileDescriptors[i][1], STDOUT_FILENO);
+                                dup2(fileDescriptors[1], STDOUT_FILENO);
+                                close(fileDescriptors[1]); 
                         }
-                        close(fileDescriptors[i][0]);
-                        close(fileDescriptors[i][1]);
+                        
 
                         if (processes[i].redirection)
                         {
@@ -382,46 +384,16 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
                         fprintf(stderr, "Error: command not found\n");
                         exit(1);
                 } else if (pid[i] > 0) {
-                        
                         waitpid(pid[i], &(status[i]), 0);
                 } else {
                         // Handle Errors
                         perror("fork");
                         exit(1);
                 }
+                
+                
         }
         
-        // pid = fork();
-        // if (pid == 0)
-        // {
-        //         /* If the process has a redirection, redirect it to process with the filename */
-        //         if (process.redirection)
-        //         {
-        //                 int fd;
-        //                 /* Opens the filename and redirects the stream to the file */
-        //                 fd = open(process.fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        //                 dup2(fd, STDOUT_FILENO);
-        //                 if (process.errorRedirect)
-        //                         dup2(fd, STDERR_FILENO);
-        //                 close(fd);
-        //         }
-        //         execvp(process.args[0], process.args);
-        //         fprintf(stderr, "Error: command not found\n");
-        //         exit(1);
-        // }
-        // else if (pid > 0)
-        // {
-        //         // Parent
-        //         int status;
-        //         waitpid(pid, &status, 0);
-        //         return WEXITSTATUS(status);
-        // }
-        // else
-        // {
-        //         // Handle Errors
-        //         perror("fork");
-        //         exit(1);
-        // }
 }
 /*
 1. Fork every process in the shell
@@ -530,3 +502,4 @@ int main(void)
 
         return EXIT_SUCCESS;
 }
+// P1 -> P2 
