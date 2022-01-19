@@ -401,6 +401,7 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
         }
 }
 
+
 int main(void)
 {
         char cmd[CMDLINE_MAX];
@@ -481,10 +482,14 @@ int main(void)
                 }
 
                 /* Regular command */
-                int retvalues[MAX_PROCESS];
-                ExecuteCommand(processList, logistics.numberProcesses, retvalues);
-                fprintf(stdout, "+ completed '%s' [%d]\n",
-                        copycmd, retvalues[0]);
+                int retValues[MAX_PROCESS];
+                ExecuteCommand(processList, logistics.numberProcesses, retValues);
+                fprintf(stdout, "+ completed '%s' ", copycmd);
+                for (int i = 0; i < logistics.numberProcesses; i++)
+                {
+                        fprintf(stdout, "[%d]", WEXITSTATUS(retValues[i]));
+                }
+                fprintf(stdout, "\n");
         }
 
         return EXIT_SUCCESS;
