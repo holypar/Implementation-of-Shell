@@ -202,24 +202,6 @@ struct Process createProcess(char **processTokens, int tokensLength)
         return process;
 }
 
-/* Helper functions that are used for the CheckParsing function */
-
-/* Checks if there is no command after a '|' or if there is an instance of having back to back pipes '||' */
-int CheckMissingCommand(char *token, char *nextToken)
-{
-        return (((!strcmp(token, "|")) && (nextToken == NULL)) || ((!strcmp(token, "|")) && (!strcmp(nextToken, "|"))));
-}
-/* Checks if there is no output file */
-int CheckNoOutputFile(char *token, char *nextToken)
-{
-        return (((!strcmp(token, ">")) && (nextToken == NULL)) || ((!strcmp(token, ">")) && (!strcmp(nextToken, "|"))));
-}
-/* Checks if there is an output file to work with */
-int CheckOutputFile(char *token, char *nextToken)
-{
-        return (!strcmp(token, ">") && nextToken != NULL && (strcmp(nextToken, "|")));
-}
-
 int CheckParsing(char **splitTokens, int tokensLength)
 {
         if (tokensLength > 16)
@@ -241,19 +223,25 @@ int CheckParsing(char **splitTokens, int tokensLength)
                         fprintf(stderr, "Error: mislocated output redirection\n");
                         return ERROR_NUMBER;
                 }
-
-                if ((((!strcmp(splitTokens[i], "|")) && (splitTokens[i+1] == NULL)) || ((!strcmp(splitTokens[i], "|")) && (!strcmp(splitTokens[i+1], "|")))))
+                /* Checks if there is no command after a '|' or if there is an instance of having back to back pipes '||' */
+                if ((((!strcmp(splitTokens[i], "|")) && (splitTokens[i+1] == NULL)) || 
+                ((!strcmp(splitTokens[i], "|")) && (!strcmp(splitTokens[i+1], "|")))))
                 {
                         fprintf(stderr, "Error: missing command\n");
                         return ERROR_NUMBER;
                 }
 
-                if ((((!strcmp(splitTokens[i], ">")) && (splitTokens[i+1] == NULL)) || ((!strcmp(splitTokens[i], ">")) && (!strcmp(splitTokens[i+1], "|")))))
+                /* Checks if there is no output file */
+                if ((((!strcmp(splitTokens[i], ">")) && (splitTokens[i+1] == NULL)) || 
+                ((!strcmp(splitTokens[i], ">")) && (!strcmp(splitTokens[i+1], "|")))))
                 {
                         fprintf(stderr, "Error: no output file\n");
                         return ERROR_NUMBER;
                 }
-                if ((!strcmp(splitTokens[i], ">") && splitTokens[i+1] != NULL && (strcmp(splitTokens[i+1], "|"))))
+
+                /* Checks if there is an output file to work with */
+                if ((!strcmp(splitTokens[i], ">") && splitTokens[i+1] != NULL && 
+                (strcmp(splitTokens[i+1], "|"))))
                 {
 
                         /* Found function on https://stackoverflow.com/questions/230062/whats-the-best-way-to-check-if-a-file-exists-in-c*/
@@ -346,28 +334,35 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
         pid_t pid[MAX_PROCESS];
         int fileDescriptors[2];  
         int previousFileDescriptor; 
+        /*Got help from another student, to handle a specific edge case */
         previousFileDescriptor = open("/dev/null", 0); 
+        
         for (int i = 0; i < numProcesses; i++)
         {
+                /* Start the piping process */
                 pipe(fileDescriptors);
                 
                 pid[i]= fork();
                  
                 if (pid[i] == 0) {
                         
-                        // If it is not the first process
+                        /* If it is not the first process */
+                        /* Connect the in stream to the pipe */
                         if (i != 0) {
                                 dup2(previousFileDescriptor, STDIN_FILENO);  
                         }
                         
-                        // If it is not the last process
+                        /* If it is not the last process */
+                        /* Connect the out stream to the pipe */
                         if (i != (numProcesses - 1)) {
                                 dup2(fileDescriptors[1], STDOUT_FILENO);
                         }
-                        // Close all the pipes 
+                        
+                        /* Close all file descriptors */
                         close(previousFileDescriptor); 
                         close(fileDescriptors[0]);
                         close(fileDescriptors[1]);
+
 
                         if (processes[i].redirection)
                         {
@@ -383,8 +378,10 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
                         fprintf(stderr, "Error: command not found\n");
                         exit(1);
                 } else if (pid[i] > 0) {
+                        /* Close the file descriptors not in use */
                         close(fileDescriptors[1]);
                         close(previousFileDescriptor); 
+                        /* Store the previous file descriptor for later use */
                         previousFileDescriptor = fileDescriptors[0]; 
                 } else {
                         // Handle Errors
@@ -392,30 +389,14 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
                         exit(1);
                 }
         }
+        /* Close the remaining file descriptor */
         close(fileDescriptors[0]); 
         for (int i = 0; i < numProcesses; i++)
         {
+                /* After everything, wait for all processes to finish and store in the appropriate location */
                 waitpid(pid[i], &status[i], 0); 
         }
-        
 }
-/*
-1. Fork every process in the shell
-Shell(Parent) -> P1(Child) 
-Shell(Parent) -> P2(Child) ... 
-
-2. Before you execute, you call dup2(pipe(read), STDIN), dup2(pipe(write), STDOUT), close both pipes. 
-If the process is the first process, we don't want dup2 on the read pipe. 
-If the process is the last process, we don't want dup2 on the write pipe. 
-
-3. Execute The process. 
-
-4. Repeat the loop 
-
-5. If you are the shell, you are waiting for a process to finish. 
-If the process finishes, we need to store it in the correct spot. 
-
-*/
 
 int main(void)
 {
@@ -487,7 +468,8 @@ int main(void)
                         fprintf(stdout, "+ completed '%s' [0]\n", copycmd);
                         continue;
                 }
-
+                
+                /* Builtin command for sls */
                 if (!strcmp(first_process.args[0], "sls"))
                 {
                         ExecuteSls();
@@ -504,4 +486,3 @@ int main(void)
 
         return EXIT_SUCCESS;
 }
-// P1 -> P2 
