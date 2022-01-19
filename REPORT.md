@@ -44,11 +44,22 @@ Before, we execute any function, we need to check if the first process specifies
 Thus, if the first function is a builtin, we execute it based upon our specified code which gives us a return value. 
 Otherwise, we move on. 
 
-#### Step 4: Execution the command line ####
+#### Step 4: Executing the processes ####
+To execute all the processes, we need a array of structs of the processes, the number of processes, and somewhere to store the return values. 
+To start, we make sure to fork once for every process. 
+Afterwards, we create a pipe opening file descriptors for use if there are multiple processes. 
+Additionally, we also use a dummy file descriptor used to store the previous file descriptors if there are multiple processes. 
+This implementation was suggested by another student (Credit: Curtis Stofer). 
+In this method, we use the dummy file descriptor to store the previous file descriptor for STDIN of the next process. 
+Therefore, this file descriptor gets saved to something before moving onto next loop and not get closed beforehand. 
 
+We loop through the processes and for the child processes, connect the STDIN of the process to the previous file descriptor read, and the STDOUT of the current file descriptors pipe.
+In the child, we additionally check for error redirection and file redirections as well. 
+For the parent (shell), we make sure to close all file descriptors not used and assign the previous file descriptor to the current one. 
 
+After this process, we wait for all the children processes to finish and store the return values in an array 
+Once, this process is done, we make sure to print the final message to the screen to STDOUT. 
 
 ## Conclusion ##
-
 
 We finally did it.

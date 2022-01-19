@@ -7,12 +7,16 @@
 #include <dirent.h>
 #include <stdbool.h>
 #include <fcntl.h>
-
+/* Found within https://stackoverflow.com/questions/9449241/where-is-path-max-defined-in-linux, 
+used within pwd function */
 #define PATH_MAX 4096
-// Found within https://stackoverflow.com/questions/9449241/where-is-path-max-defined-in-linux
+
 #define CMDLINE_MAX 512
-#define MAX_TOKENS 17
+/* Accepts up to a total of 32 tokens but parsers checks for a max of 16 arguments */
+#define MAX_TOKENS 32
+/* The maximum number of process defined within the prompt is 4 (3 pipes maximum) */
 #define MAX_PROCESS 4
+/* Defined within the prompt, the maximum token length is 32 */
 #define MAX_TOKEN_LENGTH 32
 #define ERROR_NUMBER 1
 #define SUCCESS_NUMBER 0
@@ -311,7 +315,7 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
                 }
         }
 
-        /* Storing the last process */
+        /* Storing the last few tokens */
         char *lastTokens[MAX_TOKENS] = {};
         int numberTokens = 0;
         for (int j = startCounter; j < tokensLength - 1; j++)
@@ -319,7 +323,7 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
                 lastTokens[j-startCounter] = splitTokens[j];
                 numberTokens++;
         }
-
+        /* Storing the last process */
         struct Process process = createProcess(lastTokens, numberTokens);
         processList[numberProcess] = process;
         numberProcess++;
@@ -335,7 +339,8 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
         pid_t pid[MAX_PROCESS];
         int fileDescriptors[2];  
         int previousFileDescriptor; 
-        /*Got help from another student, to handle a specific edge case */
+
+        /*Got help from another student: Curtis Stofer, to handle a specific edge case */
         previousFileDescriptor = open("/dev/null", 0); 
         
         for (int i = 0; i < numProcesses; i++)
@@ -366,17 +371,21 @@ void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
                         close(fileDescriptors[0]);
                         close(fileDescriptors[1]);
 
-
+                        /* Handles if the process has a redirection to a file */
                         if (processes[i].redirection)
                         {
                                 int fd;
                                 /* Opens the filename and redirects the stream to the file */
                                 fd = open(processes[i].fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                                 dup2(fd, STDOUT_FILENO);
+
+                                /* Redirect STDERR to output stream if specified */
                                 if (processes[i].errorRedirect)
                                         dup2(fd, STDERR_FILENO);
                                 close(fd);
                         }
+
+                        /* Executes the process */
                         execvp(processes[i].args[0], processes[i].args);
                         fprintf(stderr, "Error: command not found\n");
                         exit(1);
@@ -442,10 +451,15 @@ int main(void)
 
                 /* Parses the command line into processes */
                 struct ProcessLogic logistics = ParseCommandLine(cmd, processList);
+
+                /* If there is an error, we need to ask for the next user input */
+                /* Already handled in the parse command line */
                 if (logistics.outputCode)
                 {
                         continue;
                 }
+
+                /* Creates the first process */
                 struct Process first_process = processList[0];
 
                 /* Builtin command for exit*/
@@ -484,6 +498,8 @@ int main(void)
                 /* Regular command */
                 int retValues[MAX_PROCESS];
                 ExecuteCommand(processList, logistics.numberProcesses, retValues);
+
+                /* Prints the final output */
                 fprintf(stdout, "+ completed '%s' ", copycmd);
                 for (int i = 0; i < logistics.numberProcesses; i++)
                 {
