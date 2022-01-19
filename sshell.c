@@ -302,7 +302,7 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
                         char *processTokens[MAX_TOKENS];
                         int numberTokens = 0;
                         /* Copy everything up to the pipe */
-                        for (int j = startCounter; j < i - 1; j++)
+                        for (int j = startCounter; j < i; j++)
                         {
                                 processTokens[j] = splitTokens[j];
                                 numberTokens++;
