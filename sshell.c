@@ -340,42 +340,108 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
         return logicstics;
 }
 
-int ExecuteCommand(struct Process process)
+void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
 {
 
-        pid_t pid;
-        pid = fork();
-        if (pid == 0)
+        pid_t pid[MAX_PROCESS];
+        int fileDescriptors[numProcesses][2];  
+        for (int i = 0; i < numProcesses; i++)
         {
-                /* If the process has a redirection, redirect it to process with the filename */
-                if (process.redirection)
-                {
-                        int fd;
-                        /* Opens the filename and redirects the stream to the file */
-                        fd = open(process.fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                        dup2(fd, STDOUT_FILENO);
-                        if (process.errorRedirect)
-                                dup2(fd, STDERR_FILENO);
-                        close(fd);
+                pipe(fileDescriptors[i]); 
+        }
+        
+        for (int i = 0; i < numProcesses; i++)
+        {
+                pid[i]= fork();
+
+                if (pid[i] == 0) {
+                        
+                        // If it is not the first process
+                        // fileDescriptors[i] = the pipe at index i 
+                        if (i != 0) {
+                                dup2(fileDescriptors[i][0], STDIN_FILENO); 
+                        }
+                        // If it is not the last process
+                        if (i != (numProcesses - 1)) {
+                                dup2(fileDescriptors[i][1], STDOUT_FILENO);
+                        }
+                        close(fileDescriptors[i][0]);
+                        close(fileDescriptors[i][1]);
+
+                        if (processes[i].redirection)
+                        {
+                                int fd;
+                                /* Opens the filename and redirects the stream to the file */
+                                fd = open(processes[i].fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                                dup2(fd, STDOUT_FILENO);
+                                if (processes[i].errorRedirect)
+                                        dup2(fd, STDERR_FILENO);
+                                close(fd);
+                        }
+                        execvp(processes[i].args[0], processes[i].args);
+                        fprintf(stderr, "Error: command not found\n");
+                        exit(1);
+                } else if (pid[i] > 0) {
+                        
+                        waitpid(pid[i], &(status[i]), 0);
+                } else {
+                        // Handle Errors
+                        perror("fork");
+                        exit(1);
                 }
-                execvp(process.args[0], process.args);
-                fprintf(stderr, "Error: command not found\n");
-                exit(1);
         }
-        else if (pid > 0)
-        {
-                // Parent
-                int status;
-                waitpid(pid, &status, 0);
-                return WEXITSTATUS(status);
-        }
-        else
-        {
-                // Handle Errors
-                perror("fork");
-                exit(1);
-        }
+        
+        // pid = fork();
+        // if (pid == 0)
+        // {
+        //         /* If the process has a redirection, redirect it to process with the filename */
+        //         if (process.redirection)
+        //         {
+        //                 int fd;
+        //                 /* Opens the filename and redirects the stream to the file */
+        //                 fd = open(process.fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        //                 dup2(fd, STDOUT_FILENO);
+        //                 if (process.errorRedirect)
+        //                         dup2(fd, STDERR_FILENO);
+        //                 close(fd);
+        //         }
+        //         execvp(process.args[0], process.args);
+        //         fprintf(stderr, "Error: command not found\n");
+        //         exit(1);
+        // }
+        // else if (pid > 0)
+        // {
+        //         // Parent
+        //         int status;
+        //         waitpid(pid, &status, 0);
+        //         return WEXITSTATUS(status);
+        // }
+        // else
+        // {
+        //         // Handle Errors
+        //         perror("fork");
+        //         exit(1);
+        // }
 }
+/*
+1. Fork every process in the shell
+Shell(Parent) -> P1(Child) 
+Shell(Parent) -> P2(Child) ... 
+
+2. Before you execute, you call dup2(pipe(read), STDIN), dup2(pipe(write), STDOUT), close both pipes. 
+If the process is the first process, we don't want dup2 on the read pipe. 
+If the process is the last process, we don't want dup2 on the write pipe. 
+
+3. Execute The process. 
+
+4. Repeat the loop 
+
+5. If you are the shell, you are waiting for a process to finish. 
+If the process finishes, we need to store it in the correct spot. 
+
+*/
+
+
 
 int main(void)
 {
@@ -456,9 +522,10 @@ int main(void)
                 }
 
                 /* Regular command */
-                retval = ExecuteCommand(first_process);
+                int retvalues[MAX_PROCESS];
+                ExecuteCommand(processList, logistics.numberProcesses, retvalues);
                 fprintf(stdout, "+ completed '%s' [%d]\n",
-                        copycmd, retval);
+                        copycmd, retvalues[0]);
         }
 
         return EXIT_SUCCESS;
