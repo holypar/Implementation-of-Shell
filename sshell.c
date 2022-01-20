@@ -273,17 +273,15 @@ int CheckParsing(char **splitTokens, int tokensLength)
                 {
 
                         /* Found function on https://stackoverflow.com/questions/230062/whats-the-best-way-to-check-if-a-file-exists-in-c*/
-                        /* Checks if a file exists */
+                        /* Checks if the file exists */
                         if (access(splitTokens[i + 1], F_OK) == 0)
-                        {
-                                int fd = open(splitTokens[i + 1], O_WRONLY, 0644);
-                                if (fd == -1)
+                        {       
+                                /* Checks if the file can be written to, if not then output an error */
+                                if ((access(splitTokens[i + 1], W_OK))) 
                                 {
                                         fprintf(stderr, "Error: cannot open output file\n");
-                                        close(fd);
                                         return ERROR_NUMBER;
-                                }
-                                close(fd); 
+                                }       
                         }
                 }
                 if (!strcmp(splitTokens[i], ">"))
