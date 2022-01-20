@@ -1,12 +1,12 @@
+#include <dirent.h>
+#include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/wait.h>
 #include <sys/stat.h>
-#include <dirent.h>
-#include <stdbool.h>
-#include <fcntl.h>
+#include <sys/wait.h>
 /* Found within https://stackoverflow.com/questions/9449241/where-is-path-max-defined-in-linux, 
 used within pwd function */
 #define PATH_MAX 4096
@@ -18,10 +18,11 @@ used within pwd function */
 #define MAX_PROCESS 4
 /* Defined within the prompt, the maximum token length is 32 */
 #define MAX_TOKEN_LENGTH 32
+/* Used in parsing the command line */
 #define ERROR_NUMBER 1
 #define SUCCESS_NUMBER 0
 
-/* Data Structure for Processes */
+/* Data Structure for Processes suggestion by the professor during office hours */
 struct Process
 {
         char *args[MAX_TOKENS];
@@ -185,11 +186,14 @@ struct Process createProcess(char **processTokens, int tokensLength)
                                 errorRedirect = true;
                         redirection = true;
                         filename = processTokens[i + 1];
-                        break;
+                        i = i + 2;
                 }
                 /* Otherwise store the token */
-                args[i] = processTokens[i];
-                argsToken++;
+                if (i < tokensLength) {
+                        args[argsToken] = processTokens[i];
+                        argsToken++;  
+                }
+                
         }
 
         /* Store the tokens into the struct */
@@ -209,17 +213,21 @@ struct Process createProcess(char **processTokens, int tokensLength)
 
 int CheckParsing(char **splitTokens, int tokensLength)
 {
+        /* Checking for the number of arguments */
         if (tokensLength > 16)
         {
                 fprintf(stderr, "Error: too many process arguments\n");
                 return ERROR_NUMBER;
         }
+
         /* If first command is a '|' or '>' */
         if (!strcmp(splitTokens[0], "|") || !strcmp(splitTokens[0], ">") || !strcmp(splitTokens[0], " "))
         {
                 fprintf(stderr, "Error: missing command\n");
                 return ERROR_NUMBER;
         }
+
+        /* Going through the tokens one by one */
         bool redirectionFound = false;
         for (int i = 0; i < tokensLength - 1; i++)
         {
@@ -236,6 +244,13 @@ int CheckParsing(char **splitTokens, int tokensLength)
                         return ERROR_NUMBER;
                 }
 
+                if ((((!strcmp(splitTokens[i], "|&")) && (splitTokens[i+1] == NULL)) || 
+                ((!strcmp(splitTokens[i], "|&")) && (!strcmp(splitTokens[i+1], "|")))))
+                {
+                        fprintf(stderr, "Error: missing command\n");
+                        return ERROR_NUMBER;
+                }
+
                 /* Checks if there is no output file */
                 if ((((!strcmp(splitTokens[i], ">")) && (splitTokens[i+1] == NULL)) || 
                 ((!strcmp(splitTokens[i], ">")) && (!strcmp(splitTokens[i+1], "|")))))
@@ -244,9 +259,17 @@ int CheckParsing(char **splitTokens, int tokensLength)
                         return ERROR_NUMBER;
                 }
 
+                if ((((!strcmp(splitTokens[i], ">&")) && (splitTokens[i+1] == NULL)) || 
+                ((!strcmp(splitTokens[i], ">&")) && (!strcmp(splitTokens[i+1], "|")))))
+                {
+                        fprintf(stderr, "Error: no output file\n");
+                        return ERROR_NUMBER;
+                }
+
                 /* Checks if there is an output file to work with */
-                if ((!strcmp(splitTokens[i], ">") && splitTokens[i+1] != NULL && 
-                (strcmp(splitTokens[i+1], "|"))))
+                if (((!strcmp(splitTokens[i], ">")) || (!strcmp(splitTokens[i], ">&"))) 
+                && splitTokens[i+1] != NULL && 
+                (strcmp(splitTokens[i+1], "|")))
                 {
 
                         /* Found function on https://stackoverflow.com/questions/230062/whats-the-best-way-to-check-if-a-file-exists-in-c*/
@@ -260,11 +283,13 @@ int CheckParsing(char **splitTokens, int tokensLength)
                                         close(fd);
                                         return ERROR_NUMBER;
                                 }
+                                close(fd); 
                         }
                 }
                 if (!strcmp(splitTokens[i], ">"))
                         redirectionFound = true;
         }
+        /* Return a success number if nothing is wrong */
         return SUCCESS_NUMBER;
 }
 
@@ -335,12 +360,13 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
 
 void ExecuteCommand(struct Process* processes, int numProcesses, int* status)
 {
-
+        /* Got help from TA: Noah for the process logic */
         pid_t pid[MAX_PROCESS];
         int fileDescriptors[2];  
         int previousFileDescriptor; 
 
-        /*Got help from another student: Curtis Stofer, to handle a specific edge case */
+        /* Got suggestion from another student: Curtis Stofer, to handle a specific edge case */
+        /* Opens a dummy file descriptor so it doesn't conflict with STDIN */
         previousFileDescriptor = open("/dev/null", 0); 
         
         for (int i = 0; i < numProcesses; i++)
@@ -421,7 +447,7 @@ int main(void)
                 int retval;
 
                 /* Print prompt */
-                printf("sshell$ ");
+                printf("sshell@ucd$ ");
                 fflush(stdout);
 
                 /* Get command line */

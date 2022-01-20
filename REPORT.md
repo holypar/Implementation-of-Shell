@@ -1,10 +1,10 @@
-# SHELL #
+# Project 1: Implementation of Shell #
 
 ## Introduction ##
 For our project, we created a simple shell that executes basic commands on the terminal. It supports both output redirection as well as piping. 
 ## Implementation ##
 
-#### Data Structure ####
+### Data Structure ###
 In order to parse the command line correctly, we deided to use a data structure to store various properties related to a process. 
 Things like redirection, arguements and filenames would be stored here. 
 Each data structure would be in relation to one specific process on the command line. 
@@ -13,16 +13,16 @@ We also used another data structure to store the logistics of the data.
 After each creation of parsing the command line, we store a process logistics.  
 Specific things are stored like the total number of processes and the output code which we use for checking errors. 
 
-#### Builtin Functions ####
+### Builtin Functions ###
 For the built in functions, we execute both pwd and cd as specified using the syscalls from lecture. 
 Each of them has a specific return value associated with it. We handled the errors based on the return value. 
 
-#### Step 1: Splitting the command line ####
+### Step 1: Splitting the command line ###
 In order to parse the command line, we first split the command line into tokens by whitespace.
 Additionally, edges cases are checked like if specific token (such as the '>' or '|') is inside the one token, we make sure to split it properly. 
 Then afterwards, we split these properly and store it into an array of strings. 
 
-#### Step 2: Parsing the command line ####
+### Step 2: Parsing the command line ###
 After splitting the command line, we go through and check for '|' tokens.
 These indicate our command line should be split into multiple processes or not. 
 For every new '|', we have an additional process. 
@@ -32,19 +32,19 @@ This process is stored into an array of process structures.
 Therefore, if there are multiple processes, in the case of using pipes, we can account for that. 
 Additionally, we store the number of processes and output code (Determine if there was a parsing error or not)
 
-#### Step 2.5: Parsing Errors ####
+### Step 2.5: Parsing Errors ###
 To handle parsing errors, this is all done before we turn the commandline into processes.
 To do this, we go through the command line after the splits and check each individual token is in the correct order as specified in the prompt. 
 If there is an error, we return an output code of 1 to indicate a parsing error. 
 This will prompt the shell to print a error message to stderr and exit from the parsing phase.
 If the output code is a 1, this prompts the shell to not execute the commandline and move on to the next user input.  
 
-#### Step 3: Builtin Functions ####
+### Step 3: Builtin Functions ###
 Before, we execute any function, we need to check if the first process specifies us to do a builtin function from the shell. 
 Thus, if the first function is a builtin, we execute it based upon our specified code which gives us a return value. 
 Otherwise, we move on. 
 
-#### Step 4: Executing the processes ####
+### Step 4: Executing the processes ###
 To execute all the processes, we need a array of structs of the processes, the number of processes, and somewhere to store the return values. 
 To start, we make sure to fork once for every process. 
 Afterwards, we create a pipe opening file descriptors for use if there are multiple processes. 
@@ -61,5 +61,5 @@ After this process, we wait for all the children processes to finish and store t
 Once, this process is done, we make sure to print the final message to the screen to STDOUT. 
 
 ## Conclusion ##
+After completing the shell we learned a variety of topics discussed in lecture. We learned how a simple command is ran without using system call. We also learned what works "behind the scenes" of shell such as working with multiple processes using piping. We also became a lot better at parsing data using functions that we were not too familiar with before. The hardest aspect of this project for us was implementing piping because it was harder to debug because we couldn't go into the child process.
 
-We finally did it.
