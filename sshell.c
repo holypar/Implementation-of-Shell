@@ -243,7 +243,7 @@ int CheckParsing(char **splitTokens, int tokensLength)
                         fprintf(stderr, "Error: missing command\n");
                         return ERROR_NUMBER;
                 }
-
+                /* Similar to the if statement above but just checking for the '|&' symbol */
                 if ((((!strcmp(splitTokens[i], "|&")) && (splitTokens[i+1] == NULL)) || 
                 ((!strcmp(splitTokens[i], "|&")) && (!strcmp(splitTokens[i+1], "|")))))
                 {
@@ -251,14 +251,14 @@ int CheckParsing(char **splitTokens, int tokensLength)
                         return ERROR_NUMBER;
                 }
 
-                /* Checks if there is no output file */
+                /* Checks if there is no output file after a '>' token */
                 if ((((!strcmp(splitTokens[i], ">")) && (splitTokens[i+1] == NULL)) || 
                 ((!strcmp(splitTokens[i], ">")) && (!strcmp(splitTokens[i+1], "|")))))
                 {
                         fprintf(stderr, "Error: no output file\n");
                         return ERROR_NUMBER;
                 }
-
+                /* Similar to the if statement above but just checking for the '>&' symbol */
                 if ((((!strcmp(splitTokens[i], ">&")) && (splitTokens[i+1] == NULL)) || 
                 ((!strcmp(splitTokens[i], ">&")) && (!strcmp(splitTokens[i+1], "|")))))
                 {
@@ -313,6 +313,7 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
 
         for (int i = 0; i < tokensLength - 1; i++)
         {
+                /* If we reach a pipe, we need to store this process */
                 if (!strcmp(splitTokens[i], "|") || !strcmp(splitTokens[i], "|&"))
                 {
                         char *processTokens[MAX_TOKENS] = {};
@@ -350,9 +351,11 @@ struct ProcessLogic ParseCommandLine(char *command, struct Process *processList)
         struct Process process = createProcess(lastTokens, numberTokens);
         processList[numberProcess] = process;
         numberProcess++;
-
+        
+        /* Storing the logicistics */
         logicstics.numberProcesses = numberProcess;
         logicstics.outputCode = returnCode;
+
         return logicstics;
 }
 
